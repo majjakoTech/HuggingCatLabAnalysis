@@ -1,0 +1,12 @@
+langchain
+langchain_community
+dotenv
+openai
+pydantic
+uvicorn 
+fastapi
+python-multipart
+pdf2image
+pillow
+psycopg2-binary
+sqlalchemy
