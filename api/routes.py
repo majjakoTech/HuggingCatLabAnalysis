@@ -24,6 +24,7 @@ async def fetchData(
     content_blocks=[]
     
     for file in images:
+        
         processed_images = await process_file(file)
         for img_base64 in processed_images:
             content_blocks.append({
