@@ -5,6 +5,7 @@ from openai import OpenAI
 from db.postgres import get_postgres_db
 from model.CatData import CatData
 from schema.Fetch import schema
+from schema.VetNotes import vetnotes_scheme
 from utils.Medical import calculate_diagnosis, calculate_iris_stage
 from utils.Common import process_file,save_images
 from typing import Optional
@@ -14,8 +15,9 @@ router=APIRouter()
 client = OpenAI()
 db=next(get_postgres_db())
 
-@router.post('/fetchData')
+@router.post('/users/{user_id}/fetch-data')
 async def fetchData(
+    user_id: int,
     images: List[UploadFile]=File(..., description="Images or PDF files")
 ):
 
@@ -84,7 +86,7 @@ async def fetchData(
             
             cat_data=CatData(
             data=analysis_json,
-            user_id=4,
+            user_id=user_id,
             lab_reports=paths
         )
             db.add(cat_data)
@@ -575,3 +577,46 @@ async def analyseData(user_id: int ,category: str):
         "analysis": analysis_json,
         "data":selected_data
     }
+
+# @router.post('/vet-notes/users/{user_id}/analyze')
+# async def category(user_id: int,audio:UploadFile=File(...)):
+#     audio_content = await audio.read()
+#     transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
+    
+#     response_scheme=vetnotes_scheme
+
+#     system_prompt="""
+#     You are “Hugging Cat Companion,” the world’s most knowledgeable and empathetic feline CKD care guide.
+# Your task is to listen to (or read) a vet visit conversation transcript between a cat owner and their veterinarian, and turn it into a clear, compassionate, and medically accurate CARE Note. 
+#     """
+
+#     analysis=client.chat.completions.create(
+#         model="gpt-4o-mini",  
+#         messages=[
+
+#             {
+#                 "role": "system",
+#                 "content": system_prompt
+#             },
+#             {
+#                 "role": "user",
+#                 "content": transcription.text
+#             }
+#         ],
+#         max_tokens=1400,
+#         temperature=0.4,
+#        response_format={
+#                 "type": "json_schema",
+#                 "json_schema": {
+#                     "name": "analysis",
+#                     "schema":response_scheme,
+#                     "strict": True
+#                 }
+#             }
+#     )
+
+#     return {
+#         "success": True,
+#         "transcription": transcription.text,
+#         "analysis":analysis.choices[0].message.content
+#     }
