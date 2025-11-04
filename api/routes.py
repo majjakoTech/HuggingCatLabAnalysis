@@ -9,6 +9,7 @@ from schema.VetNotes import vetnotes_scheme
 from utils.Medical import calculate_diagnosis, calculate_iris_stage
 from utils.Common import process_file,save_images
 from typing import Optional
+from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
 
 router=APIRouter()
@@ -578,45 +579,41 @@ async def analyseData(user_id: int ,category: str):
         "data":selected_data
     }
 
-# @router.post('/vet-notes/users/{user_id}/analyze')
-# async def category(user_id: int,audio:UploadFile=File(...)):
-#     audio_content = await audio.read()
-#     transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
-    
-#     response_scheme=vetnotes_scheme
+@router.post('/vet-notes/users/{user_id}/analyze')
+async def category(user_id: int,audio:UploadFile=File(...)):
 
-#     system_prompt="""
-#     You are “Hugging Cat Companion,” the world’s most knowledgeable and empathetic feline CKD care guide.
-# Your task is to listen to (or read) a vet visit conversation transcript between a cat owner and their veterinarian, and turn it into a clear, compassionate, and medically accurate CARE Note. 
-#     """
+    # audio_content = await audio.read()
+    # transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
 
-#     analysis=client.chat.completions.create(
-#         model="gpt-4o-mini",  
-#         messages=[
+    response_scheme=vetnotes_scheme
 
-#             {
-#                 "role": "system",
-#                 "content": system_prompt
-#             },
-#             {
-#                 "role": "user",
-#                 "content": transcription.text
-#             }
-#         ],
-#         max_tokens=1400,
-#         temperature=0.4,
-#        response_format={
-#                 "type": "json_schema",
-#                 "json_schema": {
-#                     "name": "analysis",
-#                     "schema":response_scheme,
-#                     "strict": True
-#                 }
-#             }
-#     )
+    cat_data=db.query(CatData).filter_by(user_id=user_id).first()
+    cat_name=cat_data.data["NAME"]
 
-#     return {
-#         "success": True,
-#         "transcription": transcription.text,
-#         "analysis":analysis.choices[0].message.content
-#     }
+    embeed_name=f"CAT NAME:{cat_name}\n"
+
+    analysis=client.chat.completions.create(
+        model="gpt-4o-mini",  
+        messages=[
+
+            {
+                "role": "user",
+                "content":embeed_name+text
+            }
+        ],
+        max_tokens=1400,
+        temperature=0.4,
+       response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "analysis",
+                    "schema":response_scheme,
+                    "strict": True
+                }
+            }
+    )
+
+    return {
+        "success": True,
+        "analysis":json.loads(analysis.choices[0].message.content)
+    }
