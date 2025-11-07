@@ -633,7 +633,7 @@ def get_vet_notes(user_id: int):
 
     return user.vet_notes
     
-@router.get('/users/{user_id}/vet-checklist')
+@router.get('/vet-checklist/users/{user_id}')
 def get_vet_checklist(user_id: int):
 
     user=db.query(Users).filter_by(id=user_id).first()
@@ -671,5 +671,13 @@ def get_vet_checklist(user_id: int):
         )
     
     analysis_json=json.loads(analysis.choices[0].message.content)
+    save_vet_checklist(analysis_json,user_id)
     
     return analysis_json
+
+
+@router.get('/vet-checklist/users/{user_id}')
+def get_vet_checklist(user_id: int):
+    user=db.query(Users).filter_by(id=user_id).first()
+
+    return user.vet_checklist
