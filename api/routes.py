@@ -4,10 +4,11 @@ from typing import List
 from openai import OpenAI
 from db.postgres import get_postgres_db
 from model.CatData import CatData
+from model.Users import Users
 from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
 from utils.Medical import calculate_diagnosis, calculate_iris_stage
-from utils.Common import process_file,save_images
+from utils.Common import process_file,save_images,save_vet_data
 from typing import Optional
 from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
@@ -581,39 +582,53 @@ async def analyseData(user_id: int ,category: str):
 
 @router.post('/vet-notes/users/{user_id}/analyze')
 async def category(user_id: int,audio:UploadFile=File(...)):
+    try:
+        audio_content = await audio.read()
+        transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
+    
+        response_scheme=vetnotes_scheme
 
-    # audio_content = await audio.read()
-    # transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
+        cat_data=db.query(CatData).filter_by(user_id=user_id).first()
+        cat_name=cat_data.data["NAME"]
 
-    response_scheme=vetnotes_scheme
+        embeed_name=f"CAT NAME:{cat_name}\n"
 
-    cat_data=db.query(CatData).filter_by(user_id=user_id).first()
-    cat_name=cat_data.data["NAME"]
+        analysis=client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
 
-    embeed_name=f"CAT NAME:{cat_name}\n"
-
-    analysis=client.chat.completions.create(
-        model="gpt-4o-mini",  
-        messages=[
-
-            {
-                "role": "user",
-                "content":embeed_name+text
-            }
-        ],
-        max_tokens=1400,
-        temperature=0.4,
-       response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "analysis",
-                    "schema":response_scheme,
-                    "strict": True
+                {
+                    "role": "user",
+                    "content":embeed_name+text
                 }
-            }
-    )
+            ],
+            max_tokens=1400,
+            temperature=0.4,
+        response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "analysis",
+                        "schema":response_scheme,
+                        "strict": True
+                    }
+                }
+        )
+        analysis_json=json.loads(analysis.choices[0].message.content)
+        await save_vet_data(transcription.text,analysis_json,user_id,audio)
 
-    return {
-        "success": True,
-        "analysis":json.loads(analysis.choices[0].message.content)
-    }
+        return {
+            "success": True,
+            "analysis":analysis_json
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get('/vet-notes/users/{user_id}')
+def get_vet_notes(user_id: int):
+    user=db.query(Users).filter_by(id=user_id).first()
+
+    return user.vet_notes
+    

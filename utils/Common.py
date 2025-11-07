@@ -3,7 +3,12 @@ from pdf2image import convert_from_bytes
 import io
 import base64
 from pathlib import Path
+from datetime import datetime
 import uuid
+from model.Users import Users
+from db.postgres import get_postgres_db
+
+db=next(get_postgres_db())
 
 async def process_file(file: UploadFile):
     """Process both images and PDFs"""
@@ -13,7 +18,7 @@ async def process_file(file: UploadFile):
         # Convert PDF to images
         images = convert_from_bytes(file_data, dpi=200)
         processed_images = []
-        
+
         for img in images:
             # Convert PIL image to base64
             buffer = io.BytesIO()
@@ -40,4 +45,32 @@ async def save_images(files:UploadFile=File(...)):
 
 
     return file_paths
+
+async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:UploadFile=File(...)):
+
+    UPLOAD_DIR=Path("uploads/transcripts")
+    UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+    
+    file_path=UPLOAD_DIR / f"{uuid.uuid4()}_{audio.filename}"
+    with file_path.open("wb") as f:
+        f.write(await audio.read())
+    vet_notes={
+        "transcript":transcript,
+        "audio":str(file_path),
+        "analysis":analysis_json,
+        "date":datetime.now().isoformat()
+    }
+    user=db.query(Users).filter_by(id=user_id).first()
+
+    existing_vet_notes=user.vet_notes if user.vet_notes else []
+    existing_vet_notes.append(vet_notes)
+    user.vet_notes=existing_vet_notes
+    db.commit()
+
+    return vet_notes
+
+    
+    
+
+    
 

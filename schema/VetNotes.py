@@ -25,6 +25,8 @@ context_text='''
    Include short paragraphs or bullet points for readability.
 
    Emojis like 💛 💧 💊 📅 🌿 can be used sparingly to convey friendliness.
+
+   IMPORTANT: BASE YOUR RESPONSE ON THE PROVIDED DATA ONLY. IF THERE IS NO RELEVANT DATA, JUST SAY THERE IS NO DATA FOR THIS SECTION IN THE AUDIO.
 '''
 vetnotes_scheme={
     "type": "object",
