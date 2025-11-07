@@ -7,6 +7,7 @@ from model.CatData import CatData
 from model.Users import Users
 from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
+from schema.VetChecklist import vet_checklist_scheme
 from utils.Medical import calculate_diagnosis, calculate_iris_stage
 from utils.Common import process_file,save_images,save_vet_data
 from typing import Optional
@@ -632,3 +633,43 @@ def get_vet_notes(user_id: int):
 
     return user.vet_notes
     
+@router.get('/users/{user_id}/vet-checklist')
+def get_vet_checklist(user_id: int):
+
+    user=db.query(Users).filter_by(id=user_id).first()
+    care_notes=user.vet_notes[0]['analysis']
+    cat_data=db.query(CatData).filter_by(user_id=user_id).first().data
+
+    response_scheme=vet_checklist_scheme
+
+    user_prompt=f"""
+    CARE NOTES:
+    {care_notes}
+    CAT DATA:
+    {cat_data}
+    """
+    
+    analysis=client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
+
+                {
+                    "role": "user",
+                    "content":user_prompt
+                }
+            ],
+            max_tokens=1400,
+            temperature=0.4,
+        response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "analysis",
+                        "schema":response_scheme,
+                        "strict": True
+                    }
+                }
+        )
+    
+    analysis_json=json.loads(analysis.choices[0].message.content)
+    
+    return analysis_json
