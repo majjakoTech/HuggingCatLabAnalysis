@@ -9,7 +9,7 @@ from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
 from schema.VetChecklist import vet_checklist_scheme
 from utils.Medical import calculate_diagnosis, calculate_iris_stage
-from utils.Common import process_file,save_images,save_vet_data
+from utils.Common import process_file,save_images,save_vet_data,save_vet_checklist
 from typing import Optional
 from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
