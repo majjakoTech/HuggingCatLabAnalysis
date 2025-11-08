@@ -633,7 +633,7 @@ def get_vet_notes(user_id: int):
 
     return user.vet_notes
     
-@router.get('/vet-checklist/users/{user_id}')
+@router.get('/vet-checklist/users/{user_id}/analyse')
 def get_vet_checklist(user_id: int):
 
     user=db.query(Users).filter_by(id=user_id).first()
