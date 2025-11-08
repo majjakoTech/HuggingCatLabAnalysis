@@ -70,7 +70,10 @@ async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:Uplo
     return vet_notes
 
     
-    
-
+def save_vet_checklist(checklist:dict,user_id:int):
+    user=db.query(Users).filter_by(id=user_id).first()
+    user.vet_checklist=checklist
+    db.commit()
+    return checklist
     
 
