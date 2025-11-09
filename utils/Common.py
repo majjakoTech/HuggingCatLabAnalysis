@@ -72,7 +72,9 @@ async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:Uplo
     
 def save_vet_checklist(checklist:dict,user_id:int):
     user=db.query(Users).filter_by(id=user_id).first()
-    user.vet_checklist=checklist
+    existing_vet_checklist=user.vet_checklist if user.vet_checklist else []
+    existing_vet_checklist.append(checklist)
+    user.vet_checklist=existing_vet_checklist
     db.commit()
     return checklist
     

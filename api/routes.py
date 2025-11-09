@@ -3,6 +3,7 @@ from fastapi import APIRouter, UploadFile, File
 from typing import List
 from openai import OpenAI
 from db.postgres import get_postgres_db
+from datetime import datetime
 from model.CatData import CatData
 from model.Users import Users
 from schema.Fetch import schema
@@ -615,6 +616,7 @@ async def category(user_id: int,audio:UploadFile=File(...)):
                 }
         )
         analysis_json=json.loads(analysis.choices[0].message.content)
+        analysis_json['DATE']=datetime.now().isoformat()
         await save_vet_data(transcription.text,analysis_json,user_id,audio)
 
         return {
@@ -627,13 +629,13 @@ async def category(user_id: int,audio:UploadFile=File(...)):
             "error": str(e)
         }
 
-@router.get('/vet-notes/users/{user_id}')
+@router.get('/vet-notes/users/{user_id}/fetch')
 def get_vet_notes(user_id: int):
     user=db.query(Users).filter_by(id=user_id).first()
 
     return user.vet_notes
     
-@router.get('/vet-checklist/users/{user_id}/analyse')
+@router.get('/vet-checklist/users/{user_id}/analyze')
 def get_vet_checklist(user_id: int):
 
     user=db.query(Users).filter_by(id=user_id).first()
@@ -671,13 +673,20 @@ def get_vet_checklist(user_id: int):
         )
     
     analysis_json=json.loads(analysis.choices[0].message.content)
+    analysis_json['DATE']=datetime.now().isoformat()
     save_vet_checklist(analysis_json,user_id)
     
-    return analysis_json
+    return {
+        "success": True,
+        "analysis":analysis_json
+    }
 
 
-@router.get('/vet-checklist/users/{user_id}')
+@router.get('/vet-checklist/users/{user_id}/fetch')
 def get_vet_checklist(user_id: int):
     user=db.query(Users).filter_by(id=user_id).first()
-
-    return user.vet_checklist
+    response={
+        "success": True,
+        "vet_checklist":user.vet_checklist
+    }
+    return response

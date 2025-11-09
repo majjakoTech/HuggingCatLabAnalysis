@@ -10,3 +10,4 @@ class Users(Base):
 
     id=Column(Integer,primary_key=True,index=True)
     vet_notes=Column(JSON)
+    vet_checklist=Column(JSON)
