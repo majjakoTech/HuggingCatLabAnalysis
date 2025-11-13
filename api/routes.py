@@ -115,6 +115,7 @@ async def fetchData(
                 "analysis": result_data
             }
         except json.JSONDecodeError as json_error:
+            db.rollback()
             return {
                 "success": False,
                 "error": f"JSON parsing failed: {str(json_error)}",
@@ -123,11 +124,14 @@ async def fetchData(
             }
         
     except Exception as e:
+        db.rollback()
         return {
             "success": False,
             "error": str(e),
             "images_processed": 0
         }
+    finally:
+        db.close()
 
 
 
@@ -642,19 +646,56 @@ def get_vet_checklist(user_id: int):
     care_notes=user.vet_notes[0]['analysis']
     cat_data=db.query(CatData).filter_by(user_id=user_id).first().data
 
+
     response_scheme=vet_checklist_scheme
 
-    user_prompt=f"""
-    CARE NOTES:
-    {care_notes}
-    CAT DATA:
-    {cat_data}
-    """
+    system_prompt = """
+        You are "Hugging Cat Companion," the world's most knowledgeable and empathetic CKD care guide.
+
+        Your task is to analyze a cat's data and care notes to create a clear, focused Next Vet Visit Checklist.
+        The checklist helps the cat's owner prepare for their next appointment — highlighting the most important questions and discussion points based on recent findings, changes in care, and ongoing CKD management.
+
+        ## Analysis Guidelines:
+
+        Review the provided data and look for:
+        - Abnormal or borderline lab values (e.g., high creatinine, phosphorus, SDMA, or low potassium, HCT, or calcium)
+        - Any symptoms or changes mentioned (appetite, thirst, urination, vomiting, energy, behavior)
+        - Medications or supplements currently in use (dose, timing, or tolerance review needed)
+        - Diet changes or hydration strategies that may need follow-up
+        - New additions or persistent problems that deserve review
+        - Routine CKD checks that may be due (blood pressure, urinalysis, culture, retest timelines)
+
+        ## Tone and Voice:
+        - Calm, supportive, smart, feminine
+        - Avoid alarm or clinical stiffness
+        - Use words like "ask," "mention," "check," "review" instead of "must" or "should"
+        - Example: "Ask if her potassium level needs a small supplement adjustment — sometimes low-normal can cause weakness."
+
+        ## Output Requirements:
+        - Keep each section short and prioritized (2-3 key items per category)
+        - Only include what's timely, relevant, or needs vet review
+        - Base your response ONLY on the provided data
+        - If there's no relevant data for a section, write "No specific concerns based on current data" or suggest routine monitoring
+        - Prioritize items: mark urgent concerns clearly
+        """
+
+    user_prompt = f"""
+            Analyze the following data and create a vet visit checklist.
+
+            ## CARE NOTES FROM LAST VISIT:
+            {care_notes}
+
+            ## LAB RESULTS & CAT DATA:
+            {cat_data}
+            """
     
     analysis=client.chat.completions.create(
             model="gpt-4o-mini",  
             messages=[
-
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
                 {
                     "role": "user",
                     "content":user_prompt

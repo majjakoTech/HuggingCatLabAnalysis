@@ -47,35 +47,46 @@ async def save_images(files:UploadFile=File(...)):
     return file_paths
 
 async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:UploadFile=File(...)):
+    try:    
+        UPLOAD_DIR=Path("uploads/transcripts")
+        UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+        
+        file_path=UPLOAD_DIR / f"{uuid.uuid4()}_{audio.filename}"
+        with file_path.open("wb") as f:
+            f.write(await audio.read())
+        vet_notes={
+            "transcript":transcript,
+            "audio":str(file_path),
+            "analysis":analysis_json,
+            "date":datetime.now().isoformat()
+        }
+        user=db.query(Users).filter_by(id=user_id).first()
 
-    UPLOAD_DIR=Path("uploads/transcripts")
-    UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
-    
-    file_path=UPLOAD_DIR / f"{uuid.uuid4()}_{audio.filename}"
-    with file_path.open("wb") as f:
-        f.write(await audio.read())
-    vet_notes={
-        "transcript":transcript,
-        "audio":str(file_path),
-        "analysis":analysis_json,
-        "date":datetime.now().isoformat()
-    }
-    user=db.query(Users).filter_by(id=user_id).first()
-
-    existing_vet_notes=user.vet_notes if user.vet_notes else []
-    existing_vet_notes.append(vet_notes)
-    user.vet_notes=existing_vet_notes
-    db.commit()
+        existing_vet_notes=user.vet_notes if user.vet_notes else []
+        existing_vet_notes.append(vet_notes)
+        user.vet_notes=existing_vet_notes
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) 
+    finally:
+        db.close()
 
     return vet_notes
 
     
 def save_vet_checklist(checklist:dict,user_id:int):
-    user=db.query(Users).filter_by(id=user_id).first()
-    existing_vet_checklist=user.vet_checklist if user.vet_checklist else []
-    existing_vet_checklist.append(checklist)
-    user.vet_checklist=existing_vet_checklist
-    db.commit()
+    try:
+        user=db.query(Users).filter_by(id=user_id).first()
+        existing_vet_checklist=user.vet_checklist if user.vet_checklist else []
+        existing_vet_checklist.append(checklist)
+        user.vet_checklist=existing_vet_checklist
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) 
+    finally:
+        db.close()
     return checklist
     
 
