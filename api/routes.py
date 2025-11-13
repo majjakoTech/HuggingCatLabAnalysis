@@ -595,7 +595,7 @@ async def category(user_id: int,audio:UploadFile=File(...)):
         response_scheme=vetnotes_scheme
 
         cat_data=db.query(CatData).filter_by(user_id=user_id).first()
-        cat_name=cat_data.data["NAME"]
+        cat_name=cat_data.data["NAME"] if cat_data and cat_data.data["NAME"] else ""
 
         embeed_name=f"CAT NAME:{cat_name}\n"
 
