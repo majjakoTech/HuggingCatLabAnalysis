@@ -424,13 +424,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["NEGATIVE", "POSITIVE"],
-                    },
+                    }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_GLUCOSE_STRIP": {
@@ -438,13 +434,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["NEGATIVE", "POSITIVE"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_BILIRUBIN": {
@@ -452,13 +444,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["NEGATIVE", "POSITIVE"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_KETONES": {
@@ -466,13 +454,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["NEGATIVE", "POSITIVE"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_OCCULT_BLOOD": {
@@ -480,13 +464,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["NEGATIVE", "POSITIVE"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_WHITE_BLOOD_CELL_WBC": {
@@ -494,13 +474,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["SEEN", "NOT_SEEN"],
-                    }
+                    }   
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_RED_BLOOD_CELL_RBC": {
@@ -508,13 +484,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],  
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_CASTS": {
@@ -522,13 +494,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_CRYSTALS": {
@@ -536,13 +504,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
              "URINE_BACTERIA": {
@@ -550,13 +514,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],       
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_EPITHELIAL_CELLS": {
@@ -564,13 +524,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],       
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "URINE_FAT_DROPLETS": {
@@ -578,13 +534,9 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string","null"]
-                    },
-                    "DIAGNOSIS": {
-                        "type": ["string","null"],
-                        "enum": ["SEEN", "NOT_SEEN"],
                     }
                 },
-                "required": ["VALUE", "DIAGNOSIS"],
+                "required": ["VALUE"],
                 "additionalProperties": False
             },
             "BLOOD_GAMMA_GLUTAMYL_TRANSFERASE_GGT": {
@@ -733,17 +685,6 @@ schema={
                 "properties": {
                     "VALUE": {
                         "type": ["string", "null"],
-                    },
-                },
-                "required": ["VALUE"],
-                "additionalProperties": False
-            },
-              "URINE_URINARY_TRACT_INFECTION_UTI":{
-                "type": "object",
-                "properties": {
-                    "VALUE": {
-                        "type": ["string", "null"],
-                        "enum": ["POSITIVE", "NEGATIVE"],
                     },
                 },
                 "required": ["VALUE"],
@@ -1044,6 +985,6 @@ schema={
             },
 
         },
-        "required": ["NAME", "AGE", "GENDER","BLOOD_RETICULOCYTE_PERCENTAGE", "BREED", "WEIGHT","BLOOD_BICARBONATE_HCO3","URINE_CULTURE_AND_SENSITIVITY","URINE_MICRO_ALBUMINURIA","BLOOD_FREE_THYROXINE_T4","BODY_CONDITION_SCORE","BLOOD_FIBRINOGEN","MUSCLE_CONDITION_SCORE","BLOOD_SERUM_AMYLOID_A_SAA","BLOOD_C_REACTIVE_PROTEIN","FUNDIC_EXAM","MEAN_ARTERIAL_PRESSURE_MAP","BLOOD_VITAMIN_D_25HYDROXY","BLOOD_PARATHYROID_HORMONE_PTH","BLOOD_IONIZED_CALCIUM","BLOOD_ERYTHROPOIETIN_EPO","BLOOD_TRANSFERRIN_SATURATION","BLOOD_TOTAL_IRON_BINDING_CAPACITY_TIBC","BLOOD_FERRITIN","BLOOD_SERUM_IRON","BLOOD_RETICULOCYTE_COUNT","BLOOD_RBC_COMMENT","BLOOD_PARASITES","BLOOD_PLATELET_ESTIMATE","BLOOD_PARTIAL_PRESSSURE_OF_OXYGEN_PO2","BLOOD_PARTIAL_PRESSSURE_OF_CARBONDIOXIDE_PCO2","BLOOD_ANION_GAP","BLOOD_PH","RENAL_TECH_PREDICTION","BLOOD_RBC_HEALTH","SYSTOLIC_BLOOD_PRESSURE","DIASTOLIC_BLOOD_PRESSURE","BLOOD_RED_BLOOD_CELL_RBC","BLOOD_WHITE_BLOOD_CELL_WBC","BLOOD_RED_CELL_DISTRIBUTION_WIDTH_RDW","BLOOD_CREATINE_PHOSPHOKINASE_CPK","BLOOD_TOTAL_THYROXINE_T4","BLOOD_HEMOGLOBIN_HGB","BLOOD_PRECISION_PSL","BLOOD_AMYLASE","BLOOD_TRIGLYCERIDES","BLOOD_CHOLESTEROL","BLOOD_MAGNESIUM","BLOOD_BILIRUBIN","BLOOD_GAMMA_GLUTAMYL_TRANSFERASE_GGT", "BLOOD_TOTAL_PROTEIN", "BLOOD_UREA_NITROGEN_BUN", "BLOOD_ALBUMIN", "BLOOD_GLOBULIN", "BLOOD_HEMATOCRIT_HCT", "BLOOD_MEAN_CORPUSCULAR_VOLUME_MCV", "BLOOD_MEAN_CORPUSCULAR_HEMOGLOBIN_MCH","BLOOD_MEAN_CORPUSCULAR_HEMOGLOBIN_CONCENTRATION_MCHC", "BLOOD_BUN_CREATININE_RATIO","BLOOD_ALBUMIN_GLOBULIN_RATIO_AG","BLOOD_ALANINE_AMINOTRANSFERASE_ALT_SERUM_GLUTAMATE_PYRUVATE_TRANSFERASE_SGPT","BLOOD_CREATININE","BLOOD_ALKALINE_PHOSPHATE_ALP","URINE_URINARY_TRACT_INFECTION_UTI","BLOOD_LIPASE","BLOOD_GLUCOSE","BLOOD_SODIUM","BLOOD_POTASSIUM","BLOOD_SODIUM_POTASSIUM_RATIO_NAK","BLOOD_CHLORIDE","BLOOD_PLATELET_COUNT","BLOOD_NEUTROPHILS","BLOOD_LYMPHOCYTES","BLOOD_MONOCYTES","BLOOD_EOSINOPHILS","BLOOD_BASOPHILS","BLOOD_BANDS","URINE_COLLECTION_METHOD","URINE_COLOR","URINE_APPEARANCE","URINE_SPECIFIC_GRAVITY","URINE_PH","URINE_PROTEIN","URINE_GLUCOSE_STRIP","URINE_BILIRUBIN","URINE_KETONES","URINE_OCCULT_BLOOD","URINE_WHITE_BLOOD_CELL_WBC","URINE_RED_BLOOD_CELL_RBC","URINE_CASTS","URINE_CRYSTALS","URINE_BACTERIA","URINE_EPITHELIAL_CELLS","URINE_FAT_DROPLETS","BLOOD_SYMMETRIC_DIMETHYLARGININE_SDMA","BLOOD_PHOSPHORUS_PHOSPHATE","BLOOD_CALCIUM","BLOOD_ANAEMIA","URINE_PROTEIN_CREATININE_RATIO_UPC","BLOOD_ASPARTATE_AMINOTRANSFERASE_AST_SERUM_GLUTAMATE_OXALOACETATE_TRANSFERASE_SGOT"],
+        "required": ["NAME", "AGE", "GENDER","BLOOD_RETICULOCYTE_PERCENTAGE", "BREED", "WEIGHT","BLOOD_BICARBONATE_HCO3","URINE_CULTURE_AND_SENSITIVITY","URINE_MICRO_ALBUMINURIA","BLOOD_FREE_THYROXINE_T4","BODY_CONDITION_SCORE","BLOOD_FIBRINOGEN","MUSCLE_CONDITION_SCORE","BLOOD_SERUM_AMYLOID_A_SAA","BLOOD_C_REACTIVE_PROTEIN","FUNDIC_EXAM","MEAN_ARTERIAL_PRESSURE_MAP","BLOOD_VITAMIN_D_25HYDROXY","BLOOD_PARATHYROID_HORMONE_PTH","BLOOD_IONIZED_CALCIUM","BLOOD_ERYTHROPOIETIN_EPO","BLOOD_TRANSFERRIN_SATURATION","BLOOD_TOTAL_IRON_BINDING_CAPACITY_TIBC","BLOOD_FERRITIN","BLOOD_SERUM_IRON","BLOOD_RETICULOCYTE_COUNT","BLOOD_RBC_COMMENT","BLOOD_PARASITES","BLOOD_PLATELET_ESTIMATE","BLOOD_PARTIAL_PRESSSURE_OF_OXYGEN_PO2","BLOOD_PARTIAL_PRESSSURE_OF_CARBONDIOXIDE_PCO2","BLOOD_ANION_GAP","BLOOD_PH","RENAL_TECH_PREDICTION","BLOOD_RBC_HEALTH","SYSTOLIC_BLOOD_PRESSURE","DIASTOLIC_BLOOD_PRESSURE","BLOOD_RED_BLOOD_CELL_RBC","BLOOD_WHITE_BLOOD_CELL_WBC","BLOOD_RED_CELL_DISTRIBUTION_WIDTH_RDW","BLOOD_CREATINE_PHOSPHOKINASE_CPK","BLOOD_TOTAL_THYROXINE_T4","BLOOD_HEMOGLOBIN_HGB","BLOOD_PRECISION_PSL","BLOOD_AMYLASE","BLOOD_TRIGLYCERIDES","BLOOD_CHOLESTEROL","BLOOD_MAGNESIUM","BLOOD_BILIRUBIN","BLOOD_GAMMA_GLUTAMYL_TRANSFERASE_GGT", "BLOOD_TOTAL_PROTEIN", "BLOOD_UREA_NITROGEN_BUN", "BLOOD_ALBUMIN", "BLOOD_GLOBULIN", "BLOOD_HEMATOCRIT_HCT", "BLOOD_MEAN_CORPUSCULAR_VOLUME_MCV", "BLOOD_MEAN_CORPUSCULAR_HEMOGLOBIN_MCH","BLOOD_MEAN_CORPUSCULAR_HEMOGLOBIN_CONCENTRATION_MCHC", "BLOOD_BUN_CREATININE_RATIO","BLOOD_ALBUMIN_GLOBULIN_RATIO_AG","BLOOD_ALANINE_AMINOTRANSFERASE_ALT_SERUM_GLUTAMATE_PYRUVATE_TRANSFERASE_SGPT","BLOOD_CREATININE","BLOOD_ALKALINE_PHOSPHATE_ALP","BLOOD_LIPASE","BLOOD_GLUCOSE","BLOOD_SODIUM","BLOOD_POTASSIUM","BLOOD_SODIUM_POTASSIUM_RATIO_NAK","BLOOD_CHLORIDE","BLOOD_PLATELET_COUNT","BLOOD_NEUTROPHILS","BLOOD_LYMPHOCYTES","BLOOD_MONOCYTES","BLOOD_EOSINOPHILS","BLOOD_BASOPHILS","BLOOD_BANDS","URINE_COLLECTION_METHOD","URINE_COLOR","URINE_APPEARANCE","URINE_SPECIFIC_GRAVITY","URINE_PH","URINE_PROTEIN","URINE_GLUCOSE_STRIP","URINE_BILIRUBIN","URINE_KETONES","URINE_OCCULT_BLOOD","URINE_WHITE_BLOOD_CELL_WBC","URINE_RED_BLOOD_CELL_RBC","URINE_CASTS","URINE_CRYSTALS","URINE_BACTERIA","URINE_EPITHELIAL_CELLS","URINE_FAT_DROPLETS","BLOOD_SYMMETRIC_DIMETHYLARGININE_SDMA","BLOOD_PHOSPHORUS_PHOSPHATE","BLOOD_CALCIUM","BLOOD_ANAEMIA","URINE_PROTEIN_CREATININE_RATIO_UPC","BLOOD_ASPARTATE_AMINOTRANSFERASE_AST_SERUM_GLUTAMATE_OXALOACETATE_TRANSFERASE_SGOT"],
         "additionalProperties": False
     }

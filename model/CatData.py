@@ -14,3 +14,5 @@ class CatData(Base):
     lab_analysis=Column(JSON)
     lab_reports=Column(JSON)
     user_id=Column(Integer)
+    created_at=Column(Date)
+    updated_at=Column(Date)

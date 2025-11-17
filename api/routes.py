@@ -9,18 +9,19 @@ from model.Users import Users
 from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
 from schema.VetChecklist import vet_checklist_scheme
-from utils.Medical import calculate_diagnosis, calculate_iris_stage
+from utils.Medical import interpret_value, calculate_iris_stage
 from utils.Common import process_file,save_images,save_vet_data,save_vet_checklist
 from typing import Optional
 from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
+from utils.Medical import show_medical_params,interpret_bacteria_value,interpret_wbc_value,interpret_culture_value,diagnose_inflamation,diagnose_infection
 
 router=APIRouter()
 client = OpenAI()
 db=next(get_postgres_db())
 
-@router.post('/users/{user_id}/fetch-data')
-async def fetchData(
+@router.post('/lab-overview/users/{user_id}/fetch-data-report')
+async def fetchDataReport(
     user_id: int,
     images: List[UploadFile]=File(..., description="Images or PDF files")
 ):
@@ -73,42 +74,56 @@ async def fetchData(
     
                 if data is not None and data.get("VALUE") is not None and isinstance(data.get("VALUE"), (int, float)):
             
-                    calculated_diagnosis = calculate_diagnosis(metric,data["VALUE"])
-                    analysis_json[metric]["INTERPRETATION"]=calculated_diagnosis
+                    interpretation = interpret_value(metric,data["VALUE"])
+                    analysis_json[metric]["INTERPRETATION"]=interpretation
                 
 
             sdma=analysis_json.get("BLOOD_SYMMETRIC_DIMETHYLARGININE_SDMA")
             creatinine=analysis_json.get("BLOOD_CREATININE")
+            
+            urine_bacteria=analysis_json.get("URINE_BACTERIA")["VALUE"]
+            urine_wbc=analysis_json.get("URINE_WHITE_BLOOD_CELL_WBC")["VALUE"]
+            urine_culture=analysis_json.get("URINE_CULTURE_AND_SENSITIVITY")["VALUE"]
+
+            urine_bacteria_interpretation=interpret_bacteria_value(urine_bacteria)
+            urine_wbc_interpretation=interpret_wbc_value(urine_wbc)
+            urine_culture_interpretation=interpret_culture_value(urine_culture)
+
+            if urine_bacteria_interpretation:
+                analysis_json["URINE_BACTERIA"]["INTERPRETATION"]=urine_bacteria_interpretation
+            if urine_wbc_interpretation:
+                analysis_json["URINE_WHITE_BLOOD_CELL_WBC"]["INTERPRETATION"]=urine_wbc_interpretation
+            if urine_culture_interpretation:
+                analysis_json["URINE_CULTURE_AND_SENSITIVITY"]["INTERPRETATION"]=urine_culture_interpretation
+            
 
             if sdma and creatinine:
                 if "VALUE" in sdma and "VALUE" in creatinine:
                     iris_stage_data = calculate_iris_stage(sdma["VALUE"], creatinine["VALUE"])
-                    analysis_json["IRIS_STAGE"] = iris_stage_data            
+                    analysis_json["IRIS_STAGE"]={}
+                    analysis_json["IRIS_STAGE"]["VALUE"] = iris_stage_data            
             
-          
+            if urine_wbc_interpretation:
+                analysis_json["URINE_INFLAMMATION"]={}
+                analysis_json["URINE_INFLAMMATION"]["INTERPRETATION"]=diagnose_inflamation(urine_wbc_interpretation) 
+
+            if urine_culture_interpretation or (urine_bacteria_interpretation and urine_wbc_interpretation) or (urine_bacteria_interpretation and urine_culture_interpretation):
+                analysis_json["URINE_INFECTION"]={}
+                analysis_json["URINE_INFECTION"]["INTERPRETATION"]=diagnose_infection(urine_wbc_interpretation,urine_bacteria_interpretation,urine_culture_interpretation) 
+
             paths=await save_images(images)
             
             cat_data=CatData(
             data=analysis_json,
             user_id=user_id,
-            lab_reports=paths
+            lab_reports=paths,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
             db.add(cat_data)
             db.commit()
             
-
-            show_medical_params=metrics
-
-            result_data = {}
-            for param in show_medical_params:
-                if param in analysis_json and analysis_json[param] is not None:
-                    if "INTERPRETATION" in analysis_json[param]:
-                        result_data[param] = analysis_json[param]["INTERPRETATION"]
-                    elif "DIAGNOSIS" in analysis_json[param]:
-                        result_data[param] = analysis_json[param]["DIAGNOSIS"]
-                    else:
-                        result_data[param] = analysis_json[param].get("VALUE")
-            
+            result_data=show_medical_params(analysis_json)
             
             return {
                 "success": True,
@@ -133,6 +148,16 @@ async def fetchData(
     finally:
         db.close()
 
+@router.get('/lab-overview/users/{user_id}/fetch-data-db')
+async def labOverfetchDataDB(user_id: int):
+    cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
+    metrics_analysis=show_medical_params(cat_data.data)
+
+    data={
+        "success": True,
+        "data": metrics_analysis
+    }
+    return data
 
 
 @router.get('/users/{user_id}/overview')
