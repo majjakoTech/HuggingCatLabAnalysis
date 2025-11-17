@@ -89,7 +89,7 @@ def show_medical_params(data:dict):
         
         return result_data
     except Exception as e:
-        return e
+        return str(e)
 
 def interpret_wbc_value(raw: Optional[str]) -> Optional[str]:
     """

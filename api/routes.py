@@ -25,6 +25,14 @@ async def fetchDataReport(
     user_id: int,
     images: List[UploadFile]=File(..., description="Images or PDF files")
 ):
+    user_exists = db.query(Users).filter_by(id=user_id).first()
+        
+    if not user_exists:
+        return {
+                "success": False,
+                "error": "User not found"
+        }
+        
 
     response_schema = schema
     
@@ -64,100 +72,101 @@ async def fetchDataReport(
         
         analysis_text = response.choices[0].message.content
         
-        try:
-            analysis_json = json.loads(analysis_text)
+       
+        analysis_json = json.loads(analysis_text)
 
-            include_metrics=metrics
+        include_metrics=metrics
 
-            for metric in include_metrics:
-                data=analysis_json.get(metric)
+        for metric in include_metrics:
+            data=analysis_json.get(metric)
     
-                if data is not None and data.get("VALUE") is not None and isinstance(data.get("VALUE"), (int, float)):
+            if data is not None and data.get("VALUE") is not None and isinstance(data.get("VALUE"), (int, float)):
             
-                    interpretation = interpret_value(metric,data["VALUE"])
-                    analysis_json[metric]["INTERPRETATION"]=interpretation
+                interpretation = interpret_value(metric,data["VALUE"])
+                analysis_json[metric]["INTERPRETATION"]=interpretation
                 
-
-            sdma=analysis_json.get("BLOOD_SYMMETRIC_DIMETHYLARGININE_SDMA")
-            creatinine=analysis_json.get("BLOOD_CREATININE")
+        sdma=analysis_json.get("BLOOD_SYMMETRIC_DIMETHYLARGININE_SDMA")
+        creatinine=analysis_json.get("BLOOD_CREATININE")
             
-            urine_bacteria=analysis_json.get("URINE_BACTERIA")["VALUE"]
-            urine_wbc=analysis_json.get("URINE_WHITE_BLOOD_CELL_WBC")["VALUE"]
-            urine_culture=analysis_json.get("URINE_CULTURE_AND_SENSITIVITY")["VALUE"]
+        urine_bacteria=analysis_json.get("URINE_BACTERIA")["VALUE"]
+        urine_wbc=analysis_json.get("URINE_WHITE_BLOOD_CELL_WBC")["VALUE"]
+        urine_culture=analysis_json.get("URINE_CULTURE_AND_SENSITIVITY")["VALUE"]
 
-            urine_bacteria_interpretation=interpret_bacteria_value(urine_bacteria)
-            urine_wbc_interpretation=interpret_wbc_value(urine_wbc)
-            urine_culture_interpretation=interpret_culture_value(urine_culture)
+        urine_bacteria_interpretation=interpret_bacteria_value(urine_bacteria)
+        urine_wbc_interpretation=interpret_wbc_value(urine_wbc)
+        urine_culture_interpretation=interpret_culture_value(urine_culture)
 
-            if urine_bacteria_interpretation:
-                analysis_json["URINE_BACTERIA"]["INTERPRETATION"]=urine_bacteria_interpretation
-            if urine_wbc_interpretation:
-                analysis_json["URINE_WHITE_BLOOD_CELL_WBC"]["INTERPRETATION"]=urine_wbc_interpretation
-            if urine_culture_interpretation:
-                analysis_json["URINE_CULTURE_AND_SENSITIVITY"]["INTERPRETATION"]=urine_culture_interpretation
+        if urine_bacteria_interpretation:
+            analysis_json["URINE_BACTERIA"]["INTERPRETATION"]=urine_bacteria_interpretation
+        if urine_wbc_interpretation:
+            analysis_json["URINE_WHITE_BLOOD_CELL_WBC"]["INTERPRETATION"]=urine_wbc_interpretation
+        if urine_culture_interpretation:
+            analysis_json["URINE_CULTURE_AND_SENSITIVITY"]["INTERPRETATION"]=urine_culture_interpretation
             
 
-            if sdma and creatinine:
-                if "VALUE" in sdma and "VALUE" in creatinine:
-                    iris_stage_data = calculate_iris_stage(sdma["VALUE"], creatinine["VALUE"])
-                    analysis_json["IRIS_STAGE"]={}
-                    analysis_json["IRIS_STAGE"]["VALUE"] = iris_stage_data            
+        if sdma and creatinine:
+            if "VALUE" in sdma and "VALUE" in creatinine:
+                iris_stage_data = calculate_iris_stage(sdma["VALUE"], creatinine["VALUE"])
+                analysis_json["IRIS_STAGE"]={}
+                analysis_json["IRIS_STAGE"]["VALUE"] = iris_stage_data            
             
-            if urine_wbc_interpretation:
-                analysis_json["URINE_INFLAMMATION"]={}
-                analysis_json["URINE_INFLAMMATION"]["INTERPRETATION"]=diagnose_inflamation(urine_wbc_interpretation) 
+        if urine_wbc_interpretation:
+            analysis_json["URINE_INFLAMMATION"]={}
+            analysis_json["URINE_INFLAMMATION"]["INTERPRETATION"]=diagnose_inflamation(urine_wbc_interpretation) 
 
-            if urine_culture_interpretation or (urine_bacteria_interpretation and urine_wbc_interpretation) or (urine_bacteria_interpretation and urine_culture_interpretation):
-                analysis_json["URINE_INFECTION"]={}
-                analysis_json["URINE_INFECTION"]["INTERPRETATION"]=diagnose_infection(urine_wbc_interpretation,urine_bacteria_interpretation,urine_culture_interpretation) 
+        if urine_culture_interpretation or (urine_bacteria_interpretation and urine_wbc_interpretation) or (urine_bacteria_interpretation and urine_culture_interpretation):
+            analysis_json["URINE_INFECTION"]={}
+            analysis_json["URINE_INFECTION"]["INTERPRETATION"]=diagnose_infection(urine_wbc_interpretation,urine_bacteria_interpretation,urine_culture_interpretation) 
 
-            paths=await save_images(images)
-            
-            cat_data=CatData(
+        paths=await save_images(images)
+
+
+        cat_data=CatData(
             data=analysis_json,
             user_id=user_id,
             lab_reports=paths,
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
-            db.add(cat_data)
-            db.commit()
+        db.add(cat_data)
+        db.commit()
             
-            result_data=show_medical_params(analysis_json)
-            
-            return {
-                "success": True,
-                "analysis": result_data
-            }
-        except json.JSONDecodeError as json_error:
-            db.rollback()
-            return {
-                "success": False,
-                "error": f"JSON parsing failed: {str(json_error)}",
-                "raw_response": cleaned_text[:500] + "..." if len(cleaned_text) > 500 else cleaned_text,
-                "original_response": analysis_text[:200] + "..." if len(analysis_text) > 200 else analysis_text
-            }
-        
+        result_data=show_medical_params(analysis_json)
+        return {
+            "success": True,
+            "data": result_data
+        }
     except Exception as e:
         db.rollback()
         return {
-            "success": False,
-            "error": str(e),
-            "images_processed": 0
-        }
+                "success": False,
+                "error": str(e)
+            }
     finally:
         db.close()
 
 @router.get('/lab-overview/users/{user_id}/fetch-data-db')
 async def labOverfetchDataDB(user_id: int):
-    cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
-    metrics_analysis=show_medical_params(cat_data.data)
+    try:
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
+        metrics_analysis=show_medical_params(cat_data.data)
 
-    data={
-        "success": True,
-        "data": metrics_analysis
-    }
-    return data
+        data={
+            "success": True,
+            "data": metrics_analysis
+        }
+        return data
+
+    except AttributeError as e:
+        return {
+            "success": False,
+            "error": f"No lab data found for user {user_id}"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @router.get('/users/{user_id}/overview')
