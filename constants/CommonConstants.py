@@ -1,0 +1,11 @@
+lab_analysis_categories=[
+    'RA',
+    'EA',
+    'BPA',
+    'RBCA',
+    'WBCA',
+    'LEA',
+    'PEA',
+    'TFA',
+    'UA'
+]

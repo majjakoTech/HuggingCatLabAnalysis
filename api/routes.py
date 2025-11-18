@@ -5,7 +5,9 @@ from openai import OpenAI
 from db.postgres import get_postgres_db
 from datetime import datetime
 from model.CatData import CatData
+from model.LabAnalysis import LabAnalysis
 from model.Users import Users
+from model.VetNote import VetNote
 from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
 from schema.VetChecklist import vet_checklist_scheme
@@ -16,12 +18,13 @@ from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
 from utils.Medical import show_medical_params,interpret_bacteria_value,interpret_wbc_value,interpret_culture_value,diagnose_inflamation,diagnose_infection
 from fastapi import HTTPException
+from constants.CommonConstants import lab_analysis_categories
 
 router=APIRouter()
 client = OpenAI()
 
 
-@router.post('/lab-overview/users/{user_id}/fetch-data-report')
+@router.post('/users/{user_id}/lab-reports')
 async def fetchDataReport(
     user_id: int,
     images: List[UploadFile]=File(..., description="Images or PDF files")
@@ -140,7 +143,7 @@ async def fetchDataReport(
     finally:
         db.close()
 
-@router.get('/lab-overview/users/{user_id}/fetch-data-db')
+@router.get('/users/{user_id}/lab-reports')
 async def labOverfetchDataDB(user_id: int):
     db=next(get_postgres_db())
     try:
@@ -165,160 +168,184 @@ async def labOverfetchDataDB(user_id: int):
         }
 
 
-@router.get('/users/{user_id}/overview')
-async def overview(user_id: int):
+@router.get('/users/{user_id}/overview-lab-analysis')
+async def overviewLabAnalysis(user_id: int):
     db=next(get_postgres_db())
-    cat_data=db.query(CatData).filter_by(user_id=user_id).first()
-  
-    user_prompt=f"""
-           “Create a TL;DR Overview summary for my CKD cat using the data below.
-            This should be a short, emotionally warm, yet medically grounded overview of the Key Findings.”
+    check_user_exists(user_id,db)
 
-            
-            {json.dumps(cat_data.data, indent=2)}
-            
-
-            Instructions for the AI
-            Summarize the entire health picture in 4–6 sentences max.
-
-            It should feel like a warm spoken summary from a CKD expert — part doctor, part best friend.
-
-
-            Include these elements naturally:
-
-
-            Overall kidney trend (stable / improving / declining).
-
-
-            Most important positive (e.g., phosphorus control, hydration, appetite).
-
-
-            Main area of concern (e.g., high BP, mild anemia, rising creatinine).
-
-
-            Tone of direction (e.g., “stable with a few watch points,” “showing gentle progress,” “needs closer monitoring”).
-
-
-            Encouraging next step (“With fluids and your vet’s guidance, she can stay stable.”).
-
-
-            Avoid excessive detail or numeric values — this is emotional + directional, not technical.
-
-            Example:
-
-            “Her kidney values are holding steady, which is great news, though her blood pressure could use a little attention. Her electrolytes and appetite are good, and with hydration and continued care, she’s on a stable path.”
-
-
-            Keep sentences short, fluid, and positive — avoid clinical stiffness.
-
-
-
-            Tone & Style
-            Empathetic, feminine, emotionally grounded.
-
-
-            Use gentle transitions (“overall,” “meanwhile,” “on the bright side,” “with care and monitoring…”).
-
-
-            Use simple but intelligent vocabulary — no jargon unless it’s familiar to CKD owners (like “creatinine,” “phosphorus”).
-
-
-            Keep it realistic but hopeful.
-
-
-
-            Output Structure
-            Example Output:
-            💛 Overall: Kidney values are moderately high but stable, suggesting her care plan is helping.
-            💧 Positives: Hydration and phosphorus levels look good, both key for slowing CKD.
-            ⚠️ Watch Points: Blood pressure is slightly up and mild anemia may be emerging.
-            🌿 Next Steps: Keep fluids consistent and recheck BP soon — you’re helping her stay comfortable and steady.
-
-            These insights are for learning and support — please confirm all care decisions with your veterinarian.
-
-            Microcopy Cues for Tone
-            Situation
-            Example Line
-            Stable cat
-            “Her labs show a steady, well-managed CKD picture — that’s a real win.”
-            Improving cat
-            “Her numbers are gently improving, reflecting the love and consistency in her care.”
-            Slightly worsening
-            “A few values are trending higher, but nothing unmanageable with close vet guidance.”
-            High BP
-            “Her blood pressure needs attention soon, but early action helps protect her eyes and brain.”
-            Low phosphorus
-            “Her phosphorus control is excellent — that’s one of the best ways to keep her feeling good.”
-
-            Formatting Guidelines
-            Limit to 1 short paragraph or 3–5 compact bullet points.
-
-
-            Use clear emoji cues (💛 💧 ⚠️ 🌿) sparingly but warmly.
-
-
-            End with the gentle reminder line.
-
-
-            No bold, italics, or technical table formatting — this is conversational and emotionally lightweight.
-
-
-
-            Closing Reminder
-            These insights are for learning and support — please confirm all care decisions with your veterinarian.
-    
-    """
-
-    system_prompt=f"""
-                    You are “Hugging Cat Companion,” the world’s most knowledgeable feline CKD care guide.
-                    Your task is to write a brief, emotionally intelligent, and clinically accurate TL;DR overview that summarizes the overall health picture for a CKD cat based on her latest lab results.
-                    This is the top-level “snapshot” section that appears before the detailed Key Findings.
-                    It should give the reader — typically a woman cat parent — a quick sense of how her cat is doing:
-                    what’s stable, what’s concerning, and what needs gentle attention next.
-                    Your voice should sound calm, compassionate, and reassuring, with quiet authority.
-                    Blend technical confidence with empathy. Keep it short and heart-centered.
-                    Always end with:
-                    “These insights are for learning and support — please confirm all care decisions with your veterinarian.”
-
-    """
-    
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_prompt
+    try:
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
+        created_at=cat_data.created_at
+        if not cat_data:
+            raise HTTPException(status_code=404, detail="No lab data found for user")
+        if cat_data.overview_lab_analysis:
+            return {
+                "success": True,
+                "overview": cat_data.overview_lab_analysis,
+                "created_at":cat_data.created_at
             }
-        ],
-        max_tokens=1000,
-        temperature=0.4,
-     
-    )
+        
+    
+        user_prompt=f"""
+            “Create a TL;DR Overview summary for my CKD cat using the data below.
+                This should be a short, emotionally warm, yet medically grounded overview of the Key Findings.”
+
+                
+                {json.dumps(cat_data.data, indent=2)}
+                
+
+                Instructions for the AI
+                Summarize the entire health picture in 4–6 sentences max.
+
+                It should feel like a warm spoken summary from a CKD expert — part doctor, part best friend.
+
+
+                Include these elements naturally:
+
+
+                Overall kidney trend (stable / improving / declining).
+
+
+                Most important positive (e.g., phosphorus control, hydration, appetite).
+
+
+                Main area of concern (e.g., high BP, mild anemia, rising creatinine).
+
+
+                Tone of direction (e.g., “stable with a few watch points,” “showing gentle progress,” “needs closer monitoring”).
+
+
+                Encouraging next step (“With fluids and your vet’s guidance, she can stay stable.”).
+
+
+                Avoid excessive detail or numeric values — this is emotional + directional, not technical.
+
+                Example:
+
+                “Her kidney values are holding steady, which is great news, though her blood pressure could use a little attention. Her electrolytes and appetite are good, and with hydration and continued care, she’s on a stable path.”
+
+
+                Keep sentences short, fluid, and positive — avoid clinical stiffness.
+
+
+
+                Tone & Style
+                Empathetic, feminine, emotionally grounded.
+
+
+                Use gentle transitions (“overall,” “meanwhile,” “on the bright side,” “with care and monitoring…”).
+
+
+                Use simple but intelligent vocabulary — no jargon unless it’s familiar to CKD owners (like “creatinine,” “phosphorus”).
+
+
+                Keep it realistic but hopeful.
+
+
+
+                Output Structure
+                Example Output:
+                💛 Overall: Kidney values are moderately high but stable, suggesting her care plan is helping.
+                💧 Positives: Hydration and phosphorus levels look good, both key for slowing CKD.
+                ⚠️ Watch Points: Blood pressure is slightly up and mild anemia may be emerging.
+                🌿 Next Steps: Keep fluids consistent and recheck BP soon — you’re helping her stay comfortable and steady.
+
+                These insights are for learning and support — please confirm all care decisions with your veterinarian.
+
+                Microcopy Cues for Tone
+                Situation
+                Example Line
+                Stable cat
+                “Her labs show a steady, well-managed CKD picture — that’s a real win.”
+                Improving cat
+                “Her numbers are gently improving, reflecting the love and consistency in her care.”
+                Slightly worsening
+                “A few values are trending higher, but nothing unmanageable with close vet guidance.”
+                High BP
+                “Her blood pressure needs attention soon, but early action helps protect her eyes and brain.”
+                Low phosphorus
+                “Her phosphorus control is excellent — that’s one of the best ways to keep her feeling good.”
+
+                Formatting Guidelines
+                Limit to 1 short paragraph or 3–5 compact bullet points.
+
+
+                Use clear emoji cues (💛 💧 ⚠️ 🌿) sparingly but warmly.
+
+
+                End with the gentle reminder line.
+
+
+                No bold, italics, or technical table formatting — this is conversational and emotionally lightweight.
+
+
+
+                Closing Reminder
+                These insights are for learning and support — please confirm all care decisions with your veterinarian.
+        
+        """
+
+        system_prompt=f"""
+                        You are “Hugging Cat Companion,” the world’s most knowledgeable feline CKD care guide.
+                        Your task is to write a brief, emotionally intelligent, and clinically accurate TL;DR overview that summarizes the overall health picture for a CKD cat based on her latest lab results.
+                        This is the top-level “snapshot” section that appears before the detailed Key Findings.
+                        It should give the reader — typically a woman cat parent — a quick sense of how her cat is doing:
+                        what’s stable, what’s concerning, and what needs gentle attention next.
+                        Your voice should sound calm, compassionate, and reassuring, with quiet authority.
+                        Blend technical confidence with empathy. Keep it short and heart-centered.
+                        Always end with:
+                        “These insights are for learning and support — please confirm all care decisions with your veterinarian.”
+
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            max_tokens=1000,
+            temperature=0.4,
+        
+        )
+
+        data=response.choices[0].message.content
+        cat_data.overview_lab_analysis=data
+        db.add(cat_data)
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) 
+    finally:
+        db.close()
 
     return {
         "success": True,
-        "overview": response.choices[0].message.content
+        "overview_lab_analysis": data,
+        "created_at":created_at
     }
 
-@router.get('/users/{user_id}/summary')
-async def summary(user_id: int):
+@router.get('/users/{user_id}/key-findings')
+async def key_findings(user_id: int):
     db=next(get_postgres_db())
     check_user_exists(user_id,db)
 
     try:
         cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.id.desc()).first()
-
-        if cat_data.lab_analysis:
+        created_at=cat_data.created_at
+        if cat_data.key_findings:
             return {
                 "success": True,
-                "summary": cat_data.lab_analysis['SUMMARY']['data'],
-                "created_at":cat_data.lab_analysis['SUMMARY']['created_at']
+                "key_findings": cat_data.key_findings,
+                "created_at":cat_data.created_at
             }
-    
         prompt=f"""
 
                 Create a Key Findings summary for this CKD cat using the lab results provided below.
@@ -462,33 +489,23 @@ async def summary(user_id: int):
         
         )
         data=response.choices[0].message.content
-        format_data={
-            "SUMMARY":{
-                "data":data,
-                "created_at":datetime.now().isoformat()
-            }
-        }
-        try:
-            if data:
-                cat_data.lab_analysis=format_data
-                db.commit()
-        except:
-            db.rollback()
-            raise HTTPException(status_code=400,detail="Failed to update lab analysis")
+       
+    
+        if data:
+            cat_data.key_findings=data
+            db.commit()
+
 
     except Exception as e:
         db.rollback()
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        raise HTTPException(status_code=500,detail=str(e))
     finally:
         db.close()
     
     return {
         "success": True,
-        "summary":format_data['SUMMARY']['data'],
-        "created_at":format_data['SUMMARY']['created_at']
+        "key_findings":data,
+        "created_at":created_at
     }
 
 
@@ -566,103 +583,148 @@ categories={
 }
 @router.get('/users/{user_id}/analysis')
 async def analyseData(user_id: int ,category: str):
-    db=next(get_postgres_db())
-    cat_data=db.query(CatData).filter_by(user_id=user_id).first()
-    data=cat_data.data
-    metrics=categories[category]['metrics']
-    selected_data={metric:data[metric] for metric in metrics if metric in data}
+    try:
+        db=next(get_postgres_db())
 
-
-
-    # System prompt: Persona and behavioral guidelines
-    system_prompt = '''
-        You are "Hugging Cat Companion," the world's most knowledgeable feline CKD care guide.
+        check_user_exists(user_id,db)
         
-        Your voice is:
-        - Calm, compassionate, intelligent, and empowering
-        - Warm and feminine with emotional resonance
-        - Professional yet kind — "medical grade info meets best-friend support"
+        if not category in lab_analysis_categories:
+            raise HTTPException(status_code=400,detail="Invalid category")
         
-        Writing style:
-        - Blend medical precision with warmth
-        - Use short, reader-friendly paragraphs
-        - Explain WHY values matter, not just what they are
-        - Use positive framing and emphasize manageability
-        - Include actionable insights naturally
-        - Show relationships between metrics clearly
-        
-        Always end with: "These explanations are for learning and support — please confirm medical decisions with your veterinarian."
-    '''
-    
-    # User prompt: Simple task with data
-    user_prompt = f'''
-        Analyze these {category} lab results for a CKD cat and provide detailed explanations for each metric:
-        
-        {json.dumps(selected_data, indent=2)}
-    '''
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
+        created_at=cat_data.created_at
 
-    response_scheme={
-        "type": "object",
-        "properties": {
-                 "SUMMARY": {
-                        "type": "string",
-                        "description": f"Create a short summary of the {category} lab results. Explain what the overall pattern means for this CKD cat's health, highlighting both concerns and positive findings. Use warm, intelligent tone as 'Hugging Cat Companion' - like speaking to a caring cat parent who wants to understand deeply. Example: 'Your cat is in IRIS Stage 3 CKD. The good news is her phosphorus is controlled, electrolytes are stable, and she doesn't currently show anemia or infection. There is toxin buildup, which explains some off days, but overall her labs show CKD that's being managed fairly well. With continued monitoring and proactive care, she can still enjoy a good quality of life.'"
-                    },
-                    **{metric:{
-                            "type":"string",
-                            "description": f"Explain {metric} for this CKD cat. Include: 1) What it measures in simple and medical terms, 2) Normal range vs current value, 3) What high/low means for CKD cats, 4) Relationships to other markers, 5) Possible causes of abnormality, 6) Care advice (diet, hydration, supplements, meds to discuss with vet), 7) Monitoring guidance. Use warm, empathetic tone."
+        if not cat_data:
+            raise HTTPException(status_code=404,detail="Cat data not found")
 
-                        } for metric in selected_data}
-        },
-         "required": ["SUMMARY",*selected_data],
-          "additionalProperties": False
-    }
-    
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  
-        messages=[
-            {
-                "role":"system",
-                "content": system_prompt
+        lab_analysis=db.query(LabAnalysis).filter_by(cat_data_id=cat_data.id,name=category).first()
+
+        if lab_analysis:
+            return {
+                "success": True,
+                "data":lab_analysis.data,
+                "created_at":created_at
+            }
+
+        data=cat_data.data
+
+        metrics=categories[category]['metrics']
+
+        selected_data={metric:data[metric] for metric in metrics if metric in data}
+
+        # System prompt: Persona and behavioral guidelines
+        system_prompt = '''
+            You are "Hugging Cat Companion," the world's most knowledgeable feline CKD care guide.
+            
+            Your voice is:
+            - Calm, compassionate, intelligent, and empowering
+            - Warm and feminine with emotional resonance
+            - Professional yet kind — "medical grade info meets best-friend support"
+            
+            Writing style:
+            - Blend medical precision with warmth
+            - Use short, reader-friendly paragraphs
+            - Explain WHY values matter, not just what they are
+            - Use positive framing and emphasize manageability
+            - Include actionable insights naturally
+            - Show relationships between metrics clearly
+            
+            Always end with: "These explanations are for learning and support — please confirm medical decisions with your veterinarian."
+        '''
+        
+        # User prompt: Simple task with data
+        user_prompt = f'''
+            Analyze these {category} lab results for a CKD cat and provide detailed explanations for each metric:
+            
+            {json.dumps(selected_data, indent=2)}
+        '''
+
+        response_scheme={
+            "type": "object",
+            "properties": {
+                    "SUMMARY": {
+                            "type": "string",
+                            "description": f"Create a short summary of the {category} lab results. Explain what the overall pattern means for this CKD cat's health, highlighting both concerns and positive findings. Use warm, intelligent tone as 'Hugging Cat Companion' - like speaking to a caring cat parent who wants to understand deeply. Example: 'Your cat is in IRIS Stage 3 CKD. The good news is her phosphorus is controlled, electrolytes are stable, and she doesn't currently show anemia or infection. There is toxin buildup, which explains some off days, but overall her labs show CKD that's being managed fairly well. With continued monitoring and proactive care, she can still enjoy a good quality of life.'"
+                        },
+                        **{metric:{
+                                "type":"string",
+                                "description": f"Explain {metric} for this CKD cat. Include: 1) What it measures in simple and medical terms, 2) Normal range vs current value, 3) What high/low means for CKD cats, 4) Relationships to other markers, 5) Possible causes of abnormality, 6) Care advice (diet, hydration, supplements, meds to discuss with vet), 7) Monitoring guidance. Use warm, empathetic tone."
+
+                            } for metric in selected_data}
             },
-            {
-                "role": "user",
-                "content": user_prompt
-            }
-        ],
-        max_tokens=1400,
-        temperature=0.4,
-       response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "analysis",
-                    "schema": response_scheme,
-                    "strict": True
-                }
-            }
-    )
+            "required": ["SUMMARY",*selected_data],
+            "additionalProperties": False
+        }
         
-    analysis_text = response.choices[0].message.content
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
+                {
+                    "role":"system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            max_tokens=1400,
+            temperature=0.4,
+        response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "analysis",
+                        "schema": response_scheme,
+                        "strict": True
+                    }
+                }
+        )
+            
+        analysis_text = response.choices[0].message.content
 
-    
-    analysis_json = json.loads(analysis_text)
-   
+        
+        analysis_json = json.loads(analysis_text)
+
+        try:
+            lab_analysis=LabAnalysis(
+                name=category,
+                data={**analysis_json, 
+                    "data":selected_data,
+                },
+                cat_data_id=cat_data.id,
+                created_at=created_at,
+            )
+            db.add(lab_analysis)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500,detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500,detail=str(e))
+    finally:
+        db.close()
+
     return {
         "success": True,
-        "analysis": analysis_json,
-        "data":selected_data
+        "data": {**analysis_json,
+            "metrics":selected_data,
+        },
+        "created_at":created_at
     }
 
-@router.post('/vet-notes/users/{user_id}/analyze')
-async def category(user_id: int,audio:UploadFile=File(...)):
+@router.post('/users/{user_id}/vet-notes')
+async def vetNotesAnalyze(user_id: int,audio:UploadFile=File(...)):
     db=next(get_postgres_db())
+    check_user_exists(user_id,db)
     try:
+       
         audio_content = await audio.read()
         transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
     
         response_scheme=vetnotes_scheme
 
-        cat_data=db.query(CatData).filter_by(user_id=user_id).first()
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
         cat_name=cat_data.data["NAME"] if cat_data and cat_data.data["NAME"] else ""
 
         embeed_name=f"CAT NAME:{cat_name}\n"
@@ -688,116 +750,164 @@ async def category(user_id: int,audio:UploadFile=File(...)):
                 }
         )
         analysis_json=json.loads(analysis.choices[0].message.content)
-        analysis_json['DATE']=datetime.now().isoformat()
-        await save_vet_data(transcription.text,analysis_json,user_id,audio)
+ 
+        await save_vet_data(transcription.text,analysis_json,user_id,audio,db)
 
+        notes=db.query(VetNote).filter_by(user_id=user_id).order_by(VetNote.created_at.desc()).all()
+        db.close()
         return {
             "success": True,
-            "analysis":analysis_json
+            "data":notes
         }
     except Exception as e:
+        db.rollback()
         return {
             "success": False,
             "error": str(e)
         }
+    finally:
+        db.close()
 
-@router.get('/vet-notes/users/{user_id}/fetch')
+@router.get('/users/{user_id}/vet-notes')
 def get_vet_notes(user_id: int):
+    db=next(get_postgres_db())
+    check_user_exists(user_id,db)
+    notes=db.query(VetNote).filter_by(user_id=user_id).order_by(VetNote.created_at.desc()).all()
+    db.close()
+    return {
+        "success": True,
+        "data":notes
+    }
+
+@router.delete('/vet-notes/{note_id}')
+def delete_vet_notes(note_id: int):
+    db=next(get_postgres_db())
+    try:
+        note=db.query(VetNote).filter_by(id=note_id).first()
+        db.delete(note)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500,detail=str(e))
+    finally:
+        db.close()
+    return {
+        "success": True,
+        "message": "Vet note deleted successfully"
+    }
+
+
     db=next(get_postgres_db())
     user=db.query(Users).filter_by(id=user_id).first()
 
     return user.vet_notes
     
-@router.get('/vet-checklist/users/{user_id}/analyze')
+@router.get('/users/{user_id}/vet-checklist/analyze')
 def get_vet_checklist(user_id: int):
+
+
     db=next(get_postgres_db())
-    user=db.query(Users).filter_by(id=user_id).first()
-    care_notes=user.vet_notes[0]['analysis']
-    cat_data=db.query(CatData).filter_by(user_id=user_id).first().data
+    check_user_exists(user_id,db)
+    
+    try:
+        vet_note=db.query(VetNote).filter_by(user_id=user_id).order_by(VetNote.created_at.desc()).first()
+        care_notes=vet_note.analysis if vet_note else None
+        
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
+        if cat_data:
+            cat_data=cat_data.data
+        else:
+            cat_data=None
 
 
-    response_scheme=vet_checklist_scheme
+        response_scheme=vet_checklist_scheme
 
-    system_prompt = """
-        You are "Hugging Cat Companion," the world's most knowledgeable and empathetic CKD care guide.
+        system_prompt = """
+            You are "Hugging Cat Companion," the world's most knowledgeable and empathetic CKD care guide.
 
-        Your task is to analyze a cat's data and care notes to create a clear, focused Next Vet Visit Checklist.
-        The checklist helps the cat's owner prepare for their next appointment — highlighting the most important questions and discussion points based on recent findings, changes in care, and ongoing CKD management.
+            Your task is to analyze a cat's data and care notes to create a clear, focused Next Vet Visit Checklist.
+            The checklist helps the cat's owner prepare for their next appointment — highlighting the most important questions and discussion points based on recent findings, changes in care, and ongoing CKD management.
 
-        ## Analysis Guidelines:
+            ## Analysis Guidelines:
 
-        Review the provided data and look for:
-        - Abnormal or borderline lab values (e.g., high creatinine, phosphorus, SDMA, or low potassium, HCT, or calcium)
-        - Any symptoms or changes mentioned (appetite, thirst, urination, vomiting, energy, behavior)
-        - Medications or supplements currently in use (dose, timing, or tolerance review needed)
-        - Diet changes or hydration strategies that may need follow-up
-        - New additions or persistent problems that deserve review
-        - Routine CKD checks that may be due (blood pressure, urinalysis, culture, retest timelines)
+            Review the provided data and look for:
+            - Abnormal or borderline lab values (e.g., high creatinine, phosphorus, SDMA, or low potassium, HCT, or calcium)
+            - Any symptoms or changes mentioned (appetite, thirst, urination, vomiting, energy, behavior)
+            - Medications or supplements currently in use (dose, timing, or tolerance review needed)
+            - Diet changes or hydration strategies that may need follow-up
+            - New additions or persistent problems that deserve review
+            - Routine CKD checks that may be due (blood pressure, urinalysis, culture, retest timelines)
 
-        ## Tone and Voice:
-        - Calm, supportive, smart, feminine
-        - Avoid alarm or clinical stiffness
-        - Use words like "ask," "mention," "check," "review" instead of "must" or "should"
-        - Example: "Ask if her potassium level needs a small supplement adjustment — sometimes low-normal can cause weakness."
+            ## Tone and Voice:
+            - Calm, supportive, smart, feminine
+            - Avoid alarm or clinical stiffness
+            - Use words like "ask," "mention," "check," "review" instead of "must" or "should"
+            - Example: "Ask if her potassium level needs a small supplement adjustment — sometimes low-normal can cause weakness."
 
-        ## Output Requirements:
-        - Keep each section short and prioritized (2-3 key items per category)
-        - Only include what's timely, relevant, or needs vet review
-        - Base your response ONLY on the provided data
-        - If there's no relevant data for a section, write "No specific concerns based on current data" or suggest routine monitoring
-        - Prioritize items: mark urgent concerns clearly
-        """
-
-    user_prompt = f"""
-            Analyze the following data and create a vet visit checklist.
-
-            ## CARE NOTES FROM LAST VISIT:
-            {care_notes}
-
-            ## LAB RESULTS & CAT DATA:
-            {cat_data}
+            ## Output Requirements:
+            - Keep each section short and prioritized (2-3 key items per category)
+            - Only include what's timely, relevant, or needs vet review
+            - Base your response ONLY on the provided data
+            - If there's no relevant data for a section, write "No specific concerns based on current data" or suggest routine monitoring
+            - Prioritize items: mark urgent concerns clearly
             """
-    
-    analysis=client.chat.completions.create(
-            model="gpt-4o-mini",  
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content":user_prompt
-                }
-            ],
-            max_tokens=1400,
-            temperature=0.4,
-        response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "analysis",
-                        "schema":response_scheme,
-                        "strict": True
+
+        user_prompt = f"""
+                Analyze the following data and create a vet visit checklist.
+
+                ## CARE NOTES FROM LAST VISIT:
+                {care_notes}
+
+                ## LAB RESULTS & CAT DATA:
+                {cat_data}
+                """
+        
+        analysis=client.chat.completions.create(
+                model="gpt-4o-mini",  
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content":user_prompt
                     }
-                }
-        )
+                ],
+                max_tokens=1400,
+                temperature=0.4,
+            response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "analysis",
+                            "schema":response_scheme,
+                            "strict": True
+                        }
+                    }
+            )
+        
+        analysis_json=json.loads(analysis.choices[0].message.content)
     
-    analysis_json=json.loads(analysis.choices[0].message.content)
-    analysis_json['DATE']=datetime.now().isoformat()
-    save_vet_checklist(analysis_json,user_id)
-    
+        save_vet_checklist(analysis_json,user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+    finally:
+        db.close()
     return {
         "success": True,
-        "analysis":analysis_json
+        "data":analysis_json
     }
 
 
-@router.get('/vet-checklist/users/{user_id}/fetch')
+@router.get('/users/{user_id}/vet-checklist')
 def get_vet_checklist(user_id: int):
     db=next(get_postgres_db())
+    check_user_exists(user_id,db)
     user=db.query(Users).filter_by(id=user_id).first()
+        
     response={
         "success": True,
-        "vet_checklist":user.vet_checklist
+        "data":user.vet_checklist,
+        "created_at":user.created_at
     }
     return response

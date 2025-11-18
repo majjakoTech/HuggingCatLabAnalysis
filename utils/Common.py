@@ -5,6 +5,7 @@ import base64
 from pathlib import Path
 from datetime import datetime
 import uuid
+from model.VetNote import VetNote
 from model.Users import Users
 from db.postgres import get_postgres_db
 from fastapi import HTTPException
@@ -45,8 +46,8 @@ async def save_images(files:UploadFile=File(...)):
 
     return file_paths
 
-async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:UploadFile=File(...)):
-    db=next(get_postgres_db())
+async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:UploadFile=File(...),db=None):
+
     try:    
         UPLOAD_DIR=Path("uploads/transcripts")
         UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
@@ -54,48 +55,40 @@ async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:Uplo
         file_path=UPLOAD_DIR / f"{uuid.uuid4()}_{audio.filename}"
         with file_path.open("wb") as f:
             f.write(await audio.read())
-        vet_notes={
-            "transcript":transcript,
-            "audio":str(file_path),
-            "analysis":analysis_json,
-            "date":datetime.now().isoformat()
-        }
-        user=db.query(Users).filter_by(id=user_id).first()
-
-        existing_vet_notes=user.vet_notes if user.vet_notes else []
-        existing_vet_notes.append(vet_notes)
-        user.vet_notes=existing_vet_notes
+        vet_note=VetNote(
+            analysis=analysis_json,
+            transcript=transcript,
+            audio=str(file_path),
+            user_id=user_id,
+            created_at=datetime.now()
+        )
+       
+        db.add(vet_note)
         db.commit()
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e)) 
-    finally:
-        db.close()
-
-    return vet_notes
+   
+    return None
 
     
 def save_vet_checklist(checklist:dict,user_id:int):
     db=next(get_postgres_db())
     try:
         user=db.query(Users).filter_by(id=user_id).first()
-        existing_vet_checklist=user.vet_checklist if user.vet_checklist else []
-        existing_vet_checklist.append(checklist)
-        user.vet_checklist=existing_vet_checklist
+        user.vet_checklist=checklist
+        db.add(user)
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e)) 
-    finally:
-        db.close()
     return checklist
     
 def check_user_exists(user_id:int,db):
-    try:
-        user=db.query(Users).filter_by(id=user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail={"success": False, "error": "User not found"})
-   
-    finally:
+    user=db.query(Users).filter_by(id=user_id).first()
+    if not user:
         db.close()
+        raise HTTPException(status_code=404, detail={"error": "User not found"})
+
 
