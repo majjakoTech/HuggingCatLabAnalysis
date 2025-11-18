@@ -315,7 +315,7 @@ async def summary(user_id: int):
         if cat_data.lab_analysis:
             return {
                 "success": True,
-                "overview": cat_data.lab_analysis['SUMMARY']['data'],
+                "summary": cat_data.lab_analysis['SUMMARY']['data'],
                 "created_at":cat_data.lab_analysis['SUMMARY']['created_at']
             }
     
@@ -487,7 +487,7 @@ async def summary(user_id: int):
     
     return {
         "success": True,
-        "overview":format_data['SUMMARY']['data'],
+        "summary":format_data['SUMMARY']['data'],
         "created_at":format_data['SUMMARY']['created_at']
     }
 
