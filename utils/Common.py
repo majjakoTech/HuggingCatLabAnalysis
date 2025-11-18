@@ -7,8 +7,7 @@ from datetime import datetime
 import uuid
 from model.Users import Users
 from db.postgres import get_postgres_db
-
-db=next(get_postgres_db())
+from fastapi import HTTPException
 
 async def process_file(file: UploadFile):
     """Process both images and PDFs"""
@@ -33,7 +32,7 @@ async def process_file(file: UploadFile):
         return [img_base64]
         
 async def save_images(files:UploadFile=File(...)):
-
+    db=next(get_postgres_db())
     UPLOAD_DIR=Path("uploads/reports")
     UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
     file_paths=[]
@@ -47,6 +46,7 @@ async def save_images(files:UploadFile=File(...)):
     return file_paths
 
 async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:UploadFile=File(...)):
+    db=next(get_postgres_db())
     try:    
         UPLOAD_DIR=Path("uploads/transcripts")
         UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
@@ -76,6 +76,7 @@ async def save_vet_data(transcript:str,analysis_json:dict,user_id:int,audio:Uplo
 
     
 def save_vet_checklist(checklist:dict,user_id:int):
+    db=next(get_postgres_db())
     try:
         user=db.query(Users).filter_by(id=user_id).first()
         existing_vet_checklist=user.vet_checklist if user.vet_checklist else []
@@ -89,4 +90,12 @@ def save_vet_checklist(checklist:dict,user_id:int):
         db.close()
     return checklist
     
+def check_user_exists(user_id:int,db):
+    try:
+        user=db.query(Users).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail={"success": False, "error": "User not found"})
+   
+    finally:
+        db.close()
 

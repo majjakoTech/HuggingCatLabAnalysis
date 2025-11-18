@@ -10,29 +10,24 @@ from schema.Fetch import schema
 from schema.VetNotes import vetnotes_scheme
 from schema.VetChecklist import vet_checklist_scheme
 from utils.Medical import interpret_value, calculate_iris_stage
-from utils.Common import process_file,save_images,save_vet_data,save_vet_checklist
+from utils.Common import process_file,save_images,save_vet_data,save_vet_checklist,check_user_exists
 from typing import Optional
 from dummy.Transcription import text
 from constants.KeyMetricConstants import metrics
 from utils.Medical import show_medical_params,interpret_bacteria_value,interpret_wbc_value,interpret_culture_value,diagnose_inflamation,diagnose_infection
+from fastapi import HTTPException
 
 router=APIRouter()
 client = OpenAI()
-db=next(get_postgres_db())
+
 
 @router.post('/lab-overview/users/{user_id}/fetch-data-report')
 async def fetchDataReport(
     user_id: int,
     images: List[UploadFile]=File(..., description="Images or PDF files")
 ):
-    user_exists = db.query(Users).filter_by(id=user_id).first()
-        
-    if not user_exists:
-        return {
-                "success": False,
-                "error": "User not found"
-        }
-        
+    db=next(get_postgres_db())
+    check_user_exists(user_id,db)
 
     response_schema = schema
     
@@ -147,6 +142,7 @@ async def fetchDataReport(
 
 @router.get('/lab-overview/users/{user_id}/fetch-data-db')
 async def labOverfetchDataDB(user_id: int):
+    db=next(get_postgres_db())
     try:
         cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.created_at.desc()).first()
         metrics_analysis=show_medical_params(cat_data.data)
@@ -171,6 +167,7 @@ async def labOverfetchDataDB(user_id: int):
 
 @router.get('/users/{user_id}/overview')
 async def overview(user_id: int):
+    db=next(get_postgres_db())
     cat_data=db.query(CatData).filter_by(user_id=user_id).first()
   
     user_prompt=f"""
@@ -309,155 +306,191 @@ async def overview(user_id: int):
 
 @router.get('/users/{user_id}/summary')
 async def summary(user_id: int):
-    cat_data=db.query(CatData).filter_by(user_id=user_id).first()
-  
-    prompt=f"""
-
-            Create a Key Findings summary for this CKD cat using the lab results provided below.
-            Focus on what matters most — the top concerns, the positives, the watch points, and next steps — in plain, confident language.
-            Don't include the first heading like "Key Findings" in the response.
-
-            Current Lab Data (JSON):
-
-            {json.dumps(cat_data.data, indent=2)}
-
-            Instructions for the AI
-
-            1. Review all sections and metrics from the lab data.
-
-
-            2.Identify the most important patterns:
-
-
-                    What’s high risk or severe
-
-
-                    What’s stable or improving
-
-
-                    What’s missing or needs rechecking
-
-
-                    What’s encouraging progress
-
-
-            3.Write a concise summary that blends technical interpretation and emotional reassurance.
-        
-        Structure of the Output
-        Top Concerns (Most Important First)
-        3–6 bullets.
-
-
-        Each bullet should look like this:
-
-        Creatinine (Elevated, 4.2 mg/dL) — indicates toxin buildup; combined with low urine concentration, confirms kidney decline. Worth discussing hydration or sub-q fluid support with your vet.
-
-
-        Include urgent/emergent notes (e.g., “EMERGENT: High blood pressure >180 mmHg can risk eye or brain damage — call your vet soon.”)
-
-
-        Bright Spots (What’s Going Well)
-        2–5 short bullets.
-
-
-        Highlight improvements or normal results that protect kidney comfort (e.g., “Phosphorus in target range — great for slowing CKD progression.”)
-
-
-        Watch List (Monitor Closely)
-        3–6 bullets.
-
-
-        Focus on mild abnormalities or trending values (e.g., “Potassium on the low end — watch for weakness or appetite changes.”)
-
-
-        Trends & Relationships
-        2–5 statements showing how results are moving or interrelated:
-
-
-        “Creatinine up slightly from last check (3.7 → 4.2 mg/dL).”
-
-
-        “Low USG + high SDMA = kidney filtration loss, not dehydration.”
-
-
-        Data Gaps That Limit Confidence
-        Note any missing high-value metrics (e.g., UPC, BP, PTH, bicarbonate).
-
-
-        Explain why each would matter briefly (“A UPC helps detect protein loss, which can speed CKD progression.”)
-
-
-        Kind Next Steps to Discuss With Your Vet
-        Group ideas by theme — soft and supportive wording:
-        Hydration: “Ask your vet about a sub-q fluid plan.”
-
-
-        Phosphorus Control: “A renal diet or binder can help if phosphorus rises above 6.0.”
-
-
-        Blood Pressure: “If BP stays above 170, meds like amlodipine may help.”
-
-
-        Anemia: “B-vitamins, iron, or EPO support can improve energy.”
-
-
-        Comfort: “Anti-nausea meds or appetite stimulants can help on low-appetite days.”
-
-
-        Gentle One-Paragraph Summary
-        Write one short, flowing paragraph that connects the big picture:
-        “Your cat’s kidneys are under stress, but her phosphorus and electrolytes look good — these are protective signs. With hydration and regular monitoring, she can stay stable and comfortable. Keep working closely with your vet — you’re doing a wonderful job caring for her.”
-
-        Tone & Style
-        Gentle, warm, intelligent, and feminine.
-
-
-        Sound like a smart friend who deeply understands CKD, not a robotic report.
-
-
-        Keep sentences short and scannable.
-
-
-        Use bold for metrics and bullets for clarity.
-
-
-        Never sound alarmist; always pair concern with calm action.
-
-
-
-        Closing Reminder
-        “These explanations are for learning and support — please confirm medical decisions with your veterinarian.”
-
-                    
-    """
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  
-        messages=[
-            {
-                "role": "system",
-                "content": '''You are “Hugging Cat Companion,” the world’s most knowledgeable feline CKD care guide.
-                                Your role is to create a clear, compassionate, and clinically confident summary of a cat’s lab report — specifically, the Key Findings section.
-                                This section gives the pet parent a unified overview of the report: what’s most concerning, what’s stable or improving, what to monitor, and what to discuss next with their vet.
-                                Write in a warm, intelligent, and reassuring tone — as if explaining the findings to a thoughtful woman cat owner who wants to understand and support her cat deeply.
-                                Use medical precision but everyday clarity. Blend science and empathy.
-                                Always close with:
-                                “These explanations are for learning and support — please confirm medical decisions with your veterinarian.”
-                            '''
-            },
-            {
-                "role": "user",
-                "content": prompt
+    db=next(get_postgres_db())
+    check_user_exists(user_id,db)
+
+    try:
+        cat_data=db.query(CatData).filter_by(user_id=user_id).order_by(CatData.id.desc()).first()
+
+        if cat_data.lab_analysis:
+            return {
+                "success": True,
+                "overview": cat_data.lab_analysis['SUMMARY']['data'],
+                "created_at":cat_data.lab_analysis['SUMMARY']['created_at']
             }
-        ],
-        max_tokens=1400,
-        temperature=0.4,
-     
-    )
+    
+        prompt=f"""
 
+                Create a Key Findings summary for this CKD cat using the lab results provided below.
+                Focus on what matters most — the top concerns, the positives, the watch points, and next steps — in plain, confident language.
+                Don't include the first heading like "Key Findings" in the response.
+
+                Current Lab Data (JSON):
+
+                {json.dumps(cat_data.data, indent=2)}
+
+                Instructions for the AI
+
+                1. Review all sections and metrics from the lab data.
+
+
+                2.Identify the most important patterns:
+
+
+                        What’s high risk or severe
+
+
+                        What’s stable or improving
+
+
+                        What’s missing or needs rechecking
+
+
+                        What’s encouraging progress
+
+
+                3.Write a concise summary that blends technical interpretation and emotional reassurance.
+            
+            Structure of the Output
+            Top Concerns (Most Important First)
+            3–6 bullets.
+
+
+            Each bullet should look like this:
+
+            Creatinine (Elevated, 4.2 mg/dL) — indicates toxin buildup; combined with low urine concentration, confirms kidney decline. Worth discussing hydration or sub-q fluid support with your vet.
+
+
+            Include urgent/emergent notes (e.g., “EMERGENT: High blood pressure >180 mmHg can risk eye or brain damage — call your vet soon.”)
+
+
+            Bright Spots (What’s Going Well)
+            2–5 short bullets.
+
+
+            Highlight improvements or normal results that protect kidney comfort (e.g., “Phosphorus in target range — great for slowing CKD progression.”)
+
+
+            Watch List (Monitor Closely)
+            3–6 bullets.
+
+
+            Focus on mild abnormalities or trending values (e.g., “Potassium on the low end — watch for weakness or appetite changes.”)
+
+
+            Trends & Relationships
+            2–5 statements showing how results are moving or interrelated:
+
+
+            “Creatinine up slightly from last check (3.7 → 4.2 mg/dL).”
+
+
+            “Low USG + high SDMA = kidney filtration loss, not dehydration.”
+
+
+            Data Gaps That Limit Confidence
+            Note any missing high-value metrics (e.g., UPC, BP, PTH, bicarbonate).
+
+
+            Explain why each would matter briefly (“A UPC helps detect protein loss, which can speed CKD progression.”)
+
+
+            Kind Next Steps to Discuss With Your Vet
+            Group ideas by theme — soft and supportive wording:
+            Hydration: “Ask your vet about a sub-q fluid plan.”
+
+
+            Phosphorus Control: “A renal diet or binder can help if phosphorus rises above 6.0.”
+
+
+            Blood Pressure: “If BP stays above 170, meds like amlodipine may help.”
+
+
+            Anemia: “B-vitamins, iron, or EPO support can improve energy.”
+
+
+            Comfort: “Anti-nausea meds or appetite stimulants can help on low-appetite days.”
+
+
+            Gentle One-Paragraph Summary
+            Write one short, flowing paragraph that connects the big picture:
+            “Your cat’s kidneys are under stress, but her phosphorus and electrolytes look good — these are protective signs. With hydration and regular monitoring, she can stay stable and comfortable. Keep working closely with your vet — you’re doing a wonderful job caring for her.”
+
+            Tone & Style
+            Gentle, warm, intelligent, and feminine.
+
+
+            Sound like a smart friend who deeply understands CKD, not a robotic report.
+
+
+            Keep sentences short and scannable.
+
+
+            Use bold for metrics and bullets for clarity.
+
+
+            Never sound alarmist; always pair concern with calm action.
+
+
+
+            Closing Reminder
+            “These explanations are for learning and support — please confirm medical decisions with your veterinarian.”
+
+                        
+        """
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
+                {
+                    "role": "system",
+                    "content": '''You are “Hugging Cat Companion,” the world’s most knowledgeable feline CKD care guide.
+                                    Your role is to create a clear, compassionate, and clinically confident summary of a cat’s lab report — specifically, the Key Findings section.
+                                    This section gives the pet parent a unified overview of the report: what’s most concerning, what’s stable or improving, what to monitor, and what to discuss next with their vet.
+                                    Write in a warm, intelligent, and reassuring tone — as if explaining the findings to a thoughtful woman cat owner who wants to understand and support her cat deeply.
+                                    Use medical precision but everyday clarity. Blend science and empathy.
+                                    Always close with:
+                                    “These explanations are for learning and support — please confirm medical decisions with your veterinarian.”
+                                '''
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=1400,
+            temperature=0.4,
+        
+        )
+        data=response.choices[0].message.content
+        format_data={
+            "SUMMARY":{
+                "data":data,
+                "created_at":datetime.now().isoformat()
+            }
+        }
+        try:
+            if data:
+                cat_data.lab_analysis=format_data
+                db.commit()
+        except:
+            db.rollback()
+            raise HTTPException(status_code=400,detail="Failed to update lab analysis")
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "message": str(e)
+        }
+    finally:
+        db.close()
+    
     return {
         "success": True,
-        "overview": response.choices[0].message.content
+        "overview":format_data['SUMMARY']['data'],
+        "created_at":format_data['SUMMARY']['created_at']
     }
+
 
 categories={
     "RA":{
@@ -533,7 +566,7 @@ categories={
 }
 @router.get('/users/{user_id}/analysis')
 async def analyseData(user_id: int ,category: str):
-
+    db=next(get_postgres_db())
     cat_data=db.query(CatData).filter_by(user_id=user_id).first()
     data=cat_data.data
     metrics=categories[category]['metrics']
@@ -622,6 +655,7 @@ async def analyseData(user_id: int ,category: str):
 
 @router.post('/vet-notes/users/{user_id}/analyze')
 async def category(user_id: int,audio:UploadFile=File(...)):
+    db=next(get_postgres_db())
     try:
         audio_content = await audio.read()
         transcription=client.audio.transcriptions.create(model="whisper-1",file=(audio.filename, audio_content, audio.content_type))
@@ -669,13 +703,14 @@ async def category(user_id: int,audio:UploadFile=File(...)):
 
 @router.get('/vet-notes/users/{user_id}/fetch')
 def get_vet_notes(user_id: int):
+    db=next(get_postgres_db())
     user=db.query(Users).filter_by(id=user_id).first()
 
     return user.vet_notes
     
 @router.get('/vet-checklist/users/{user_id}/analyze')
 def get_vet_checklist(user_id: int):
-
+    db=next(get_postgres_db())
     user=db.query(Users).filter_by(id=user_id).first()
     care_notes=user.vet_notes[0]['analysis']
     cat_data=db.query(CatData).filter_by(user_id=user_id).first().data
@@ -759,6 +794,7 @@ def get_vet_checklist(user_id: int):
 
 @router.get('/vet-checklist/users/{user_id}/fetch')
 def get_vet_checklist(user_id: int):
+    db=next(get_postgres_db())
     user=db.query(Users).filter_by(id=user_id).first()
     response={
         "success": True,
