@@ -48,6 +48,7 @@ def calculate_iris_stage(sdma_value, creatinine_value) -> dict:
         
         sdma = float(sdma_value)
         creatinine = float(creatinine_value)
+        print(sdma,creatinine)
         
         # Determine stage based on IRIS guidelines
         # IRIS staging is primarily based on creatinine, with SDMA as supporting evidence

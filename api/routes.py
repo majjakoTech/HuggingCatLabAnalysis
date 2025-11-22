@@ -903,7 +903,12 @@ def get_vet_checklist(user_id: int):
 def get_vet_checklist(user_id: int):
     db=next(get_postgres_db())
     check_user_exists(user_id,db)
-    user=db.query(Users).filter_by(id=user_id).first()
+    try:
+        user=db.query(Users).filter_by(id=user_id).first()
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+    finally:
+        db.close()
         
     response={
         "success": True,
