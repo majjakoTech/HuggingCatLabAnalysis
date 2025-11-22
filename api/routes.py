@@ -909,10 +909,28 @@ def get_vet_checklist(user_id: int):
         raise HTTPException(status_code=500,detail=str(e))
     finally:
         db.close()
-        
+
     response={
         "success": True,
         "data":user.vet_checklist,
         "created_at":user.created_at
     }
     return response
+
+@router.delete('/users/{user_id}/lab-data-delete')
+def delete_lab_data(user_id: int):
+    db=next(get_postgres_db())
+    check_user_exists(user_id,db)
+    try:
+        db.query(CatData).filter_by(user_id=user_id).delete()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500,detail=str(e))
+    finally:
+        db.close()
+    return {
+        "success": True,
+        "message": "Lab data deleted successfully"
+    }
+    
